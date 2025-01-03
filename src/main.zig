@@ -4,7 +4,9 @@ const scanner = @import("scanner/scanner.zig");
 const stdout = std.io.getStdIn().writer();
 
 pub fn main() !void {
-    const allocator = std.heap.page_allocator;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
     // Sample input code to scan
     const source =
