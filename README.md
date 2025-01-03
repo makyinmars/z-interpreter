@@ -84,4 +84,3 @@ Tokens:
 - `src/main.zig`: Main entry point with sample code
 - `src/scanner/`: Scanner implementation
   - `scanner.zig`: Core scanner logic
-- `README.md`: This documentation

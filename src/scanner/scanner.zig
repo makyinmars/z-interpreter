@@ -1,19 +1,4 @@
 // Main Scanner Logic
-// - Empty file
-// - Parentheses
-// - Braces
-// - Other single-character tokens
-// - Lexical errors
-// - Assignment & equality Operators
-// - Negation & inequality operators
-// - Relational operators
-// - Division operator & comments
-// - Whitespace
-// - Multi-line errors
-// - String literals
-// - Number literals
-// - Identifiers
-// - Reserved words
 const std = @import("std");
 
 // Define a TokenType for all token types (e.g: Identifier, Number, String, etc)
@@ -50,7 +35,6 @@ const TokenType = enum {
     Or,
     Print,
     Return,
-    Super,
     This,
     True,
     Var,
@@ -59,14 +43,12 @@ const TokenType = enum {
     Eof,
 };
 
-// Create a token struct to hold token type and value
 const Token = struct {
     type: TokenType, // The type of the token (e.g., Identifier, Number, String, etc.)
     lexeme: []const u8, // The actual text of the token as it appears in the source code
     line: usize, // The line number in the source code where the token appears
 };
 
-// Create a Scanner struct with methods to scan the input
 pub const Scanner = struct {
     source: []const u8, // The complete source code to scan
     start: usize = 0, // Starting position of current lexeme
@@ -334,7 +316,7 @@ pub const Scanner = struct {
         const lexeme = self.source[self.start..self.current];
 
         // Check if the lexeme matches any reserved words
-        const tokenType = if (std.mem.eql(u8, lexeme, "and")) TokenType.And else if (std.mem.eql(u8, lexeme, "else")) TokenType.Else else if (std.mem.eql(u8, lexeme, "false")) TokenType.False else if (std.mem.eql(u8, lexeme, "for")) TokenType.For else if (std.mem.eql(u8, lexeme, "fun")) TokenType.Fun else if (std.mem.eql(u8, lexeme, "if")) TokenType.If else if (std.mem.eql(u8, lexeme, "nil")) TokenType.Nil else if (std.mem.eql(u8, lexeme, "or")) TokenType.Or else if (std.mem.eql(u8, lexeme, "print")) TokenType.Print else if (std.mem.eql(u8, lexeme, "return")) TokenType.Return else if (std.mem.eql(u8, lexeme, "super")) TokenType.Super else if (std.mem.eql(u8, lexeme, "this")) TokenType.This else if (std.mem.eql(u8, lexeme, "true")) TokenType.True else if (std.mem.eql(u8, lexeme, "var")) TokenType.Var else if (std.mem.eql(u8, lexeme, "while")) TokenType.While else TokenType.Identifier;
+        const tokenType = if (std.mem.eql(u8, lexeme, "and")) TokenType.And else if (std.mem.eql(u8, lexeme, "else")) TokenType.Else else if (std.mem.eql(u8, lexeme, "false")) TokenType.False else if (std.mem.eql(u8, lexeme, "for")) TokenType.For else if (std.mem.eql(u8, lexeme, "fun")) TokenType.Fun else if (std.mem.eql(u8, lexeme, "if")) TokenType.If else if (std.mem.eql(u8, lexeme, "nil")) TokenType.Nil else if (std.mem.eql(u8, lexeme, "or")) TokenType.Or else if (std.mem.eql(u8, lexeme, "print")) TokenType.Print else if (std.mem.eql(u8, lexeme, "return")) TokenType.Return else if (std.mem.eql(u8, lexeme, "this")) TokenType.This else if (std.mem.eql(u8, lexeme, "true")) TokenType.True else if (std.mem.eql(u8, lexeme, "var")) TokenType.Var else if (std.mem.eql(u8, lexeme, "while")) TokenType.While else TokenType.Identifier;
 
         // Add the token to the tokens list
         try self.addToken(tokenType);
