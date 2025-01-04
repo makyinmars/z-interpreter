@@ -35,7 +35,6 @@ const TokenType = enum {
     Or,
     Print,
     Return,
-    This,
     True,
     Var,
     While,
@@ -57,6 +56,14 @@ pub const Scanner = struct {
     tokens: std.ArrayList(Token), // List of tokens found
     allocator: std.mem.Allocator, // Memory allocator for strings/tokens
 
+    /// Initializes a new Scanner instance.
+    ///
+    /// Parameters:
+    /// - `source`: The source code to be scanned.
+    /// - `allocator`: The memory allocator to be used for token storage.
+    ///
+    /// Returns:
+    /// A new Scanner instance with the provided source and allocator.
     pub fn init(source: []const u8, allocator: std.mem.Allocator) Scanner {
         return Scanner{
             .source = source,
@@ -65,6 +72,10 @@ pub const Scanner = struct {
         };
     }
 
+    /// Deinitializes the Scanner instance, freeing all allocated memory.
+    /// This function should be called when the scanner is no longer needed.
+    /// It frees any dynamically allocated memory, including error tokens and the tokens list.
+    /// Note: String literals are not freed as they are slices of the original source.
     pub fn deinit(self: *Scanner) void {
         for (self.tokens.items) |token| {
             // Only free error messages (which we allocated with allocPrint)
@@ -77,10 +88,9 @@ pub const Scanner = struct {
         self.tokens.deinit();
     }
 
-    // Scan the entire source code and tokenize it.
-    // This function processes the source code character by character,
-    // identifies tokens, and adds them to the tokens list.
-    // It also handles the end of the input by adding an EOF token.
+    /// This function processes the source code character by character,
+    /// identifies tokens, and adds them to the tokens list.
+    /// It also handles the end of the input by adding an EOF token.
     pub fn scan(self: *Scanner) !void {
         // Loop through the source code until we reach the end
         while (!self.isAtEnd()) {
@@ -98,12 +108,15 @@ pub const Scanner = struct {
         });
     }
 
-    // Helper method to check if we've reached the end of the source code
+    /// Helper method to check if we've reached the end of the source code
     fn isAtEnd(self: *Scanner) bool {
         return self.current >= self.source.len;
     }
 
-    // scanToken(): Scan a single token
+    /// This function scans a single token from the source code.
+    /// It processes the current character and determines the appropriate token type.
+    /// It handles single-character tokens, multi-character tokens, strings, numbers,
+    /// identifiers, and comments. It also tracks line numbers and handles errors.
     fn scanToken(self: *Scanner) !void {
         const c = self.advance();
 
@@ -185,7 +198,8 @@ pub const Scanner = struct {
 
         // If we reached end of input without finding closing quote
         if (self.isAtEnd()) {
-            return error.UnterminatedString;
+            try self.addErrorToken("Undertinated string");
+            return;
         }
 
         // Consume the closing quote
@@ -224,9 +238,8 @@ pub const Scanner = struct {
         return c >= '0' and c <= '9';
     }
 
-    // Add an error token to the tokens list
-    // This is used to report lexical errors while still maintaining
-    // the ability to continue scanning the rest of the source
+    /// This is used to report lexical errors while still maintaining
+    /// the ability to continue scanning the rest of the source
     fn addErrorToken(self: *Scanner, message: []const u8) !void {
         const lexeme = self.source[self.start..self.current];
         // Create a new string that combines the lexeme and error message
@@ -300,20 +313,20 @@ pub const Scanner = struct {
         }
     }
 
-    // Look at the next character without consuming it
-    // Similar to peek() but looks one character ahead
-    // Returns the character at current+1 position or 0 if at end of input
+    /// Look at the next character without consuming it
+    /// Similar to peek() but looks one character ahead
+    /// Returns the character at current+1 position or 0 if at end of input
     fn peekNext(self: *Scanner) u8 {
         if (self.current + 1 >= self.source.len) return 0;
         return self.source[self.current + 1];
     }
 
-    // This function scans an identifier or a reserved word from the source code.
-    // It starts at the current position and continues until it encounters a character
-    // that is not part of an identifier (e.g., whitespace, punctuation, etc.).
-    // After scanning the identifier, it checks if it matches any reserved words.
-    // If it does, it adds the corresponding reserved word token; otherwise, it adds
-    // an identifier token.
+    /// This function scans an identifier or a reserved word from the source code.
+    /// It starts at the current position and continues until it encounters a character
+    /// that is not part of an identifier (e.g., whitespace, punctuation, etc.).
+    /// After scanning the identifier, it checks if it matches any reserved words.
+    /// If it does, it adds the corresponding reserved word token; otherwise, it adds
+    /// an identifier token.
     fn scanIdentifier(self: *Scanner) !void {
         // Continue scanning while the current character is a letter, digit, or underscore
         while (isAlphaNumeric(self.peek())) {
@@ -324,7 +337,7 @@ pub const Scanner = struct {
         const lexeme = self.source[self.start..self.current];
 
         // Check if the lexeme matches any reserved words
-        const tokenType = if (std.mem.eql(u8, lexeme, "and")) TokenType.And else if (std.mem.eql(u8, lexeme, "else")) TokenType.Else else if (std.mem.eql(u8, lexeme, "false")) TokenType.False else if (std.mem.eql(u8, lexeme, "for")) TokenType.For else if (std.mem.eql(u8, lexeme, "fun")) TokenType.Fun else if (std.mem.eql(u8, lexeme, "if")) TokenType.If else if (std.mem.eql(u8, lexeme, "nil")) TokenType.Nil else if (std.mem.eql(u8, lexeme, "or")) TokenType.Or else if (std.mem.eql(u8, lexeme, "print")) TokenType.Print else if (std.mem.eql(u8, lexeme, "return")) TokenType.Return else if (std.mem.eql(u8, lexeme, "this")) TokenType.This else if (std.mem.eql(u8, lexeme, "true")) TokenType.True else if (std.mem.eql(u8, lexeme, "var")) TokenType.Var else if (std.mem.eql(u8, lexeme, "while")) TokenType.While else TokenType.Identifier;
+        const tokenType = if (std.mem.eql(u8, lexeme, "and")) TokenType.And else if (std.mem.eql(u8, lexeme, "else")) TokenType.Else else if (std.mem.eql(u8, lexeme, "false")) TokenType.False else if (std.mem.eql(u8, lexeme, "for")) TokenType.For else if (std.mem.eql(u8, lexeme, "fun")) TokenType.Fun else if (std.mem.eql(u8, lexeme, "if")) TokenType.If else if (std.mem.eql(u8, lexeme, "nil")) TokenType.Nil else if (std.mem.eql(u8, lexeme, "or")) TokenType.Or else if (std.mem.eql(u8, lexeme, "print")) TokenType.Print else if (std.mem.eql(u8, lexeme, "return")) TokenType.Return else if (std.mem.eql(u8, lexeme, "true")) TokenType.True else if (std.mem.eql(u8, lexeme, "var")) TokenType.Var else if (std.mem.eql(u8, lexeme, "while")) TokenType.While else TokenType.Identifier;
 
         // Add the token to the tokens list
         try self.addToken(tokenType);
@@ -495,170 +508,148 @@ test "Multi-Character Tokens" {
 // - Test the scanner with various string literals, including multi-line strings and unterminated strings.
 // - Expected Output: String literals should be correctly tokenized,
 //   and unterminated strings should generate an error token.
-// test "String Literals" {
-//     const allocator = testing.allocator;
-//     const source = "\"Hello, World!\" \"Multi\nLine\" \"Unterminated";
-//     var scanner = Scanner.init(source, allocator);
-//     defer scanner.deinit();
-//     try scanner.scan();
-//     const expected_tokens = [_]TokenType{
-//         TokenType.String,
-//         TokenType.String,
-//         TokenType.Error,
-//         TokenType.Eof,
-//     };
-//     try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
-//     for (scanner.tokens.items, expected_tokens) |token, expected_type| {
-//         try testing.expectEqual(expected_type, token.type);
-//     }
-// }
+test "String Literals" {
+    const allocator = testing.allocator;
+    const source = "\"Hello, World!\" \"Multi\nLine\" \"Unterminated";
+    var scanner = Scanner.init(source, allocator);
+    defer scanner.deinit();
+    try scanner.scan();
+    const expected_tokens = [_]TokenType{
+        TokenType.String,
+        TokenType.String,
+        TokenType.Error,
+        TokenType.Eof,
+    };
+    try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
+    for (scanner.tokens.items, expected_tokens) |token, expected_type| {
+        try testing.expectEqual(expected_type, token.type);
+    }
+}
 
-// ### 6. **Number Literals**
-//    - Test the scanner with various number literals, including integers and floating-point numbers.
-//    - Expected Output: Number literals should be correctly tokenized.
-//
-//    ```zig
-//    test "Number Literals" {
-//        const allocator = testing.allocator;
-//        const source = "42 3.14 0.123 123.456";
-//        var scanner = Scanner.init(source, allocator);
-//        defer scanner.deinit();
-//        try scanner.scan();
-//        const expected_tokens = [_]TokenType{
-//            TokenType.Number,
-//            TokenType.Number,
-//            TokenType.Number,
-//            TokenType.Number,
-//            TokenType.Eof,
-//        };
-//        try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
-//        for (scanner.tokens.items, expected_tokens) |token, expected_type| {
-//            try testing.expectEqual(expected_type, token.type);
-//        }
-//    }
-//    ```
-//
-// ### 7. **Identifiers and Keywords**
-//    - Test the scanner with various identifiers and reserved keywords.
-//    - Expected Output: Identifiers should be correctly tokenized, and reserved keywords should be recognized as their respective token types.
-//
-//    ```zig
-//    test "Identifiers and Keywords" {
-//        const allocator = testing.allocator;
-//        const source = "var x = if else while true false";
-//        var scanner = Scanner.init(source, allocator);
-//        defer scanner.deinit();
-//        try scanner.scan();
-//        const expected_tokens = [_]TokenType{
-//            TokenType.Var,
-//            TokenType.Identifier,
-//            TokenType.Equal,
-//            TokenType.If,
-//            TokenType.Else,
-//            TokenType.While,
-//            TokenType.True,
-//            TokenType.False,
-//            TokenType.Eof,
-//        };
-//        try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
-//        for (scanner.tokens.items, expected_tokens) |token, expected_type| {
-//            try testing.expectEqual(expected_type, token.type);
-//        }
-//    }
-//    ```
-//
-// ### 8. **Comments**
-//    - Test the scanner with single-line and multi-line comments.
-//    - Expected Output: Comments should be ignored, and no tokens should be generated for them.
-//
-//    ```zig
-//    test "Comments" {
-//        const allocator = testing.allocator;
-//        const source = "// Single-line comment\n/* Multi-line\ncomment */ var x = 42;";
-//        var scanner = Scanner.init(source, allocator);
-//        defer scanner.deinit();
-//        try scanner.scan();
-//        const expected_tokens = [_]TokenType{
-//            TokenType.Var,
-//            TokenType.Identifier,
-//            TokenType.Equal,
-//            TokenType.Number,
-//            TokenType.Semicolon,
-//            TokenType.Eof,
-//        };
-//        try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
-//        for (scanner.tokens.items, expected_tokens) |token, expected_type| {
-//            try testing.expectEqual(expected_type, token.type);
-//        }
-//    }
-//    ```
-//
-// ### 9. **Error Handling**
-//    - Test the scanner with invalid characters or unexpected input.
-//    - Expected Output: Error tokens should be generated for invalid input.
-//
-//    ```zig
-//    test "Error Handling" {
-//        const allocator = testing.allocator;
-//        const source = "@#$\nvar x = 42;";
-//        var scanner = Scanner.init(source, allocator);
-//        defer scanner.deinit();
-//        try scanner.scan();
-//        const expected_tokens = [_]TokenType{
-//            TokenType.Error,
-//            TokenType.Error,
-//            TokenType.Error,
-//            TokenType.Var,
-//            TokenType.Identifier,
-//            TokenType.Equal,
-//            TokenType.Number,
-//            TokenType.Semicolon,
-//            TokenType.Eof,
-//        };
-//        try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
-//        for (scanner.tokens.items, expected_tokens) |token, expected_type| {
-//            try testing.expectEqual(expected_type, token.type);
-//        }
-//    }
-//    ```
-//
-// ### 10. **Mixed Input**
-//    - Test the scanner with a mix of all the above cases to ensure it handles complex input correctly.
-//    - Expected Output: All tokens should be correctly identified and categorized.
-//
-//    ```zig
-//    test "Mixed Input" {
-//        const allocator = testing.allocator;
-//        const source = "var x = 42;\nif (x > 10) {\n    print(\"Hello, World!\");\n} // Comment\n/* Multi-line\ncomment */";
-//        var scanner = Scanner.init(source, allocator);
-//        defer scanner.deinit();
-//        try scanner.scan();
-//        const expected_tokens = [_]TokenType{
-//            TokenType.Var,
-//            TokenType.Identifier,
-//            TokenType.Equal,
-//            TokenType.Number,
-//            TokenType.Semicolon,
-//            TokenType.If,
-//            TokenType.LeftParen,
-//            TokenType.Identifier,
-//            TokenType.Greater,
-//            TokenType.Number,
-//            TokenType.RightParen,
-//            TokenType.LeftBrace,
-//            TokenType.Print,
-//            TokenType.LeftParen,
-//            TokenType.String,
-//            TokenType.RightParen,
-//            TokenType.Semicolon,
-//            TokenType.RightBrace,
-//            TokenType.Eof,
-//        };
-//        try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
-//        for (scanner.tokens.items, expected_tokens) |token, expected_type| {
-//            try testing.expectEqual(expected_type, token.type);
-//        }
-//    }
-//    ```
-//
-// By running these tests, you can ensure that your `Scanner` implementation is robust and handles a wide variety of input scenarios correctly.
+// - Test the scanner with various number literals, including integers and floating-point numbers.
+// - Expected Output: Number literals should be correctly tokenized.
+test "Number Literals" {
+    const allocator = testing.allocator;
+    const source = "42 3.14 0.123 123.456";
+    var scanner = Scanner.init(source, allocator);
+    defer scanner.deinit();
+    try scanner.scan();
+    const expected_tokens = [_]TokenType{
+        TokenType.Number,
+        TokenType.Number,
+        TokenType.Number,
+        TokenType.Number,
+        TokenType.Eof,
+    };
+    try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
+    for (scanner.tokens.items, expected_tokens) |token, expected_type| {
+        try testing.expectEqual(expected_type, token.type);
+    }
+}
+
+// - Test the scanner with various identifiers and reserved keywords.
+// - Expected Output: Identifiers should be correctly tokenized, and reserved keywords should be recognized as their respective token types.
+test "Identifiers and Keywords" {
+    const allocator = testing.allocator;
+    const source = "var x = if else while true false";
+    var scanner = Scanner.init(source, allocator);
+    defer scanner.deinit();
+    try scanner.scan();
+    const expected_tokens = [_]TokenType{
+        TokenType.Var,
+        TokenType.Identifier,
+        TokenType.Equal,
+        TokenType.If,
+        TokenType.Else,
+        TokenType.While,
+        TokenType.True,
+        TokenType.False,
+        TokenType.Eof,
+    };
+    try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
+    for (scanner.tokens.items, expected_tokens) |token, expected_type| {
+        try testing.expectEqual(expected_type, token.type);
+    }
+}
+
+// - Test the scanner with single-line and multi-line comments.
+// - Expected Output: Comments should be ignored, and no tokens should be generated for them.
+test "Comments" {
+    const allocator = testing.allocator;
+    const source = "// Single-line comment\n/* Multi-line\ncomment */ var x = 42;";
+    var scanner = Scanner.init(source, allocator);
+    defer scanner.deinit();
+    try scanner.scan();
+    const expected_tokens = [_]TokenType{
+        TokenType.Var,
+        TokenType.Identifier,
+        TokenType.Equal,
+        TokenType.Number,
+        TokenType.Semicolon,
+        TokenType.Eof,
+    };
+    try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
+    for (scanner.tokens.items, expected_tokens) |token, expected_type| {
+        try testing.expectEqual(expected_type, token.type);
+    }
+}
+
+// - Test the scanner with invalid characters or unexpected input.
+// - Expected Output: Error tokens should be generated for invalid input.
+test "Error Handling" {
+    const allocator = testing.allocator;
+    const source = "@#$\nvar x = 42;";
+    var scanner = Scanner.init(source, allocator);
+    defer scanner.deinit();
+    try scanner.scan();
+    const expected_tokens = [_]TokenType{
+        TokenType.Error,
+        TokenType.Error,
+        TokenType.Error,
+        TokenType.Var,
+        TokenType.Identifier,
+        TokenType.Equal,
+        TokenType.Number,
+        TokenType.Semicolon,
+        TokenType.Eof,
+    };
+    try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
+    for (scanner.tokens.items, expected_tokens) |token, expected_type| {
+        try testing.expectEqual(expected_type, token.type);
+    }
+}
+
+// - Test the scanner with a mix of all the above cases to ensure it handles complex input correctly.
+// - Expected Output: All tokens should be correctly identified and categorized.
+test "Mixed Input" {
+    const allocator = testing.allocator;
+    const source = "var x = 42;\nif (x > 10) {\n    print(\"Hello, World!\");\n} // Comment\n/* Multi-line\ncomment */";
+    var scanner = Scanner.init(source, allocator);
+    defer scanner.deinit();
+    try scanner.scan();
+    const expected_tokens = [_]TokenType{
+        TokenType.Var,
+        TokenType.Identifier,
+        TokenType.Equal,
+        TokenType.Number,
+        TokenType.Semicolon,
+        TokenType.If,
+        TokenType.LeftParen,
+        TokenType.Identifier,
+        TokenType.Greater,
+        TokenType.Number,
+        TokenType.RightParen,
+        TokenType.LeftBrace,
+        TokenType.Print,
+        TokenType.LeftParen,
+        TokenType.String,
+        TokenType.RightParen,
+        TokenType.Semicolon,
+        TokenType.RightBrace,
+        TokenType.Eof,
+    };
+    try testing.expectEqual(expected_tokens.len, scanner.tokens.items.len);
+    for (scanner.tokens.items, expected_tokens) |token, expected_type| {
+        try testing.expectEqual(expected_type, token.type);
+    }
+}
