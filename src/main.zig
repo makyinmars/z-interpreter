@@ -1,5 +1,5 @@
 const std = @import("std");
-const scanner = @import("scanner/scanner.zig");
+const scanner = @import("scanner.zig");
 
 const stdout = std.io.getStdIn().writer();
 

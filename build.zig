@@ -53,10 +53,12 @@ pub fn build(b: *std.Build) void {
     // TODO: Include scanner.zig for the scanner_test.zig
     // Add test runner for all test files in the test directory
     const test_runner = b.addTest(.{
-        .root_source_file = b.path("test/scanner_test.zig"),
+        .root_source_file = b.path("src/test_ast.zig"),
         .target = target,
         .optimize = optimize,
     });
+
+    test_runner.addIncludePath(b.path("src/test_scanner.zig"));
 
     const run_scanner_tests = b.addRunArtifact(test_runner);
 

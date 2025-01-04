@@ -1,6 +1,7 @@
 const std = @import("std");
-const Scanner = @import("../src/scanner/scanner.zig").Scanner;
-const TokenType = @import("../src/scanner/scanner.zig").TokenType;
+
+const Scanner = @import("scanner.zig").Scanner;
+const TokenType = @import("scanner.zig").TokenType;
 
 const testing = std.testing;
 

@@ -42,7 +42,7 @@ pub const TokenType = enum {
     Eof,
 };
 
-const Token = struct {
+pub const Token = struct {
     type: TokenType, // The type of the token (e.g., Identifier, Number, String, etc.)
     lexeme: []const u8, // The actual text of the token as it appears in the source code
     line: usize, // The line number in the source code where the token appears
