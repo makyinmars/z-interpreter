@@ -1,5 +1,7 @@
 const std = @import("std");
 const scanner = @import("scanner.zig");
+const parser = @import("parser.zig");
+const ast = @import("ast.zig");
 
 const stdout = std.io.getStdIn().writer();
 
@@ -32,4 +34,15 @@ pub fn main() !void {
             token.lexeme,
         });
     }
+
+    // Initialize parser with tokens
+    var prsr = parser.Parser.init(scnr.tokens.items, allocator);
+    defer prsr.deinit();
+
+    // Parse the tokens into an AST
+    const tree = try prsr.parse();
+
+    // Print the AST structure
+    try stdout.print("\nAST Structure: \n", .{});
+    try tree.printAst(0);
 }
