@@ -50,14 +50,15 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    // New test for scanner.zig
-    const scanner_tests = b.addTest(.{
-        .root_source_file = b.path("src/scanner/scanner.zig"),
+    // TODO: Include scanner.zig for the scanner_test.zig
+    // Add test runner for all test files in the test directory
+    const test_runner = b.addTest(.{
+        .root_source_file = b.path("test/scanner_test.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const run_scanner_tests = b.addRunArtifact(scanner_tests);
+    const run_scanner_tests = b.addRunArtifact(test_runner);
 
     const exe_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/main.zig"),

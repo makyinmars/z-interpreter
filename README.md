@@ -22,7 +22,7 @@ A Zig-based interpreter implementation featuring a lexical scanner. This project
 
 ### Prerequisites
 
-- Zig compiler (0.11.0 or later)
+- Zig compiler (0.13)
 - Basic understanding of compiler/interpreter concepts
 
 ### Running the Scanner
