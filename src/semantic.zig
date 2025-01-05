@@ -56,6 +56,10 @@ pub const SemanticAnalyzer = struct {
     /// Returns:
     /// A list of semantic errors, if any.
     pub fn analyze(self: *SemanticAnalyzer, ast: *const Ast) SemanticError![]const []const u8 {
+
+        // Create the global scope before analyzing
+        try self.beginScope();
+        defer self.endScope();
         for (ast.statements.items) |stmt| {
             try self.analyzeStmt(stmt);
         }
@@ -79,7 +83,7 @@ pub const SemanticAnalyzer = struct {
                 for (block.statements.items) |inner_stmt| {
                     try self.analyzeStmt(inner_stmt);
                 }
-                try self.endScope();
+                defer self.endScope();
             },
             .If => |if_stmt| {
                 try self.analyzeExpr(if_stmt.condition);
@@ -156,7 +160,7 @@ pub const SemanticAnalyzer = struct {
                 for (func.body.items) |stmt| {
                     try self.analyzeStmt(stmt);
                 }
-                try self.endScope();
+                defer self.endScope();
             },
         }
     }
@@ -173,7 +177,7 @@ pub const SemanticAnalyzer = struct {
                 for (f.body.items) |stmt| {
                     try self.analyzeStmt(stmt);
                 }
-                try self.endScope();
+                defer self.endScope();
             },
             else => unreachable, // This should never happen
         }
@@ -186,7 +190,7 @@ pub const SemanticAnalyzer = struct {
     }
 
     /// Ends the current scope.
-    fn endScope(self: *SemanticAnalyzer) SemanticError!void {
+    fn endScope(self: *SemanticAnalyzer) void {
         var scope = self.scopes.pop();
         scope.deinit();
     }
@@ -224,12 +228,11 @@ pub const SemanticAnalyzer = struct {
 
     /// Reports a semantic error.
     fn reportError(self: *SemanticAnalyzer, token: Token, message: []const u8) !void {
-        const err_msg = try std.fmt.allocPrint(self.allocator, "[line {}] Semantic error at '{s}': {s}", .{ token.line, token.lexeme, message });
+        const err_msg = try std.fmt.allocPrint(self.allocator, "[line {}] Semantic error at '{s}': {s}.", .{ token.line, token.lexeme, message });
         try self.errors.append(err_msg);
     }
 };
 
-// TODO: Fix tests
 // Explanation of Tests
 // 1. **Variable Declaration and Definition**: This test checks that a variable can be declared and defined without errors.
 // 2. **Undefined Variable**: This test ensures that an error is reported when an undefined variable is used.
@@ -263,83 +266,114 @@ test "SemanticAnalyzer: variable declaration and definition" {
     try testing.expectEqual(@as(usize, 0), errors.len);
 }
 //
-// test "SemanticAnalyzer: undefined variable" {
-//     const allocator = testing.allocator;
-//     var analyzer = SemanticAnalyzer.init(allocator);
-//     defer analyzer.deinit();
-//
-//     // Create a simple AST with an undefined variable
-//     var ast = Ast{
-//         .statements = std.ArrayList(Stmt).init(allocator),
-//     };
-//     defer ast.statements.deinit();
-//
-//     var expr = Expr{ .Variable = .{
-//         .name = Token{ .type = TokenType.Identifier, .lexeme = "x", .line = 1 },
-//     } };
-//     const stmt = Stmt{ .Expression = .{ .expression = &expr } };
-//     try ast.statements.append(stmt);
-//
-//     // Analyze the AST
-//     const errors = try analyzer.analyze(&ast);
-//     try testing.expectEqual(@as(usize, 1), errors.len);
-//     try testing.expectEqualStrings("[line 1] Semantic error at 'x': Undefined variable 'x'.", errors[0]);
-// }
-//
-// test "SemanticAnalyzer: scope management" {
-//     const allocator = testing.allocator;
-//     var analyzer = SemanticAnalyzer.init(allocator);
-//     defer analyzer.deinit();
-//
-//     // Create a simple AST with nested scopes
-//     var ast = Ast{
-//         .statements = std.ArrayList(Stmt).init(allocator),
-//     };
-//     defer ast.statements.deinit();
-//
-//     const inner_var_decl = Stmt{ .Var = .{
-//         .name = Token{ .type = TokenType.Identifier, .lexeme = "x", .line = 1 },
-//         .initializer = null,
-//     } };
-//     var block = Stmt{ .Block = .{
-//         .statements = std.ArrayList(Stmt).init(allocator),
-//     } };
-//     try block.Block.statements.append(inner_var_decl);
-//
-//     const outer_var_decl = Stmt{ .Var = .{
-//         .name = Token{ .type = TokenType.Identifier, .lexeme = "x", .line = 1 },
-//         .initializer = null,
-//     } };
-//     try ast.statements.append(outer_var_decl);
-//     try ast.statements.append(block);
-//
-//     // Analyze the AST
-//     const errors = try analyzer.analyze(&ast);
-//     try testing.expectEqual(@as(usize, 0), errors.len);
-// }
-//
-// test "SemanticAnalyzer: function declaration and scope" {
-//     const allocator = testing.allocator;
-//     var analyzer = SemanticAnalyzer.init(allocator);
-//     defer analyzer.deinit();
-//
-//     // Create a simple AST with a function declaration
-//     var ast = Ast{
-//         .statements = std.ArrayList(Stmt).init(allocator),
-//     };
-//     defer ast.statements.deinit();
-//
-//     var func = Expr{ .Function = .{
-//         .params = std.ArrayList(Token).init(allocator),
-//         .body = std.ArrayList(Stmt).init(allocator),
-//     } };
-//     const func_decl = Stmt{ .Function = .{
-//         .name = Token{ .type = TokenType.Identifier, .lexeme = "foo", .line = 1 },
-//         .function = &func,
-//     } };
-//     try ast.statements.append(func_decl);
-//
-//     // Analyze the AST
-//     const errors = try analyzer.analyze(&ast);
-//     try testing.expectEqual(@as(usize, 0), errors.len);
-// }
+test "SemanticAnalyzer: undefined variable" {
+    const allocator = testing.allocator;
+    var analyzer = SemanticAnalyzer.init(allocator);
+    defer analyzer.deinit();
+
+    // Create a simple AST with an undefined variable
+    var ast = Ast{
+        .allocator = allocator,
+        .statements = std.ArrayList(*Stmt).init(allocator),
+    };
+    defer ast.statements.deinit();
+
+    const expr = try allocator.create(Expr);
+    errdefer allocator.destroy(expr);
+    expr.* = Expr{ .Variable = .{
+        .name = Token{ .type = TokenType.Identifier, .lexeme = "x", .line = 1 },
+    } };
+
+    const stmt = try allocator.create(Stmt);
+    errdefer allocator.destroy(stmt);
+    stmt.* = Stmt{ .Expression = .{ .expression = expr } };
+
+    try ast.statements.append(stmt);
+    defer allocator.destroy(stmt);
+    defer allocator.destroy(expr);
+
+    // Analyze the AST
+    const errors = try analyzer.analyze(&ast);
+    try testing.expectEqual(@as(usize, 1), errors.len);
+    try testing.expectEqualStrings("[line 1] Semantic error at 'x': Undefined variable 'x'.", errors[0]);
+}
+
+test "SemanticAnalyzer: scope management" {
+    const allocator = testing.allocator;
+    var analyzer = SemanticAnalyzer.init(allocator);
+    defer analyzer.deinit();
+
+    // Create a simple AST with nested scopes
+    var ast = Ast{
+        .allocator = allocator,
+        .statements = std.ArrayList(*Stmt).init(allocator),
+    };
+    defer ast.statements.deinit();
+
+    const inner_var_decl = try allocator.create(Stmt);
+    errdefer allocator.destroy(inner_var_decl);
+    defer allocator.destroy(inner_var_decl);
+    inner_var_decl.* = Stmt{ .Var = .{
+        .name = Token{ .type = TokenType.Identifier, .lexeme = "x", .line = 1 },
+        .initializer = null,
+    } };
+
+    const block = try allocator.create(Stmt);
+    errdefer allocator.destroy(block);
+    defer allocator.destroy(block);
+    block.* = Stmt{ .Block = .{
+        .statements = std.ArrayList(*Stmt).init(allocator),
+    } };
+    defer block.Block.statements.deinit();
+
+    try block.Block.statements.append(inner_var_decl);
+
+    const outer_var_decl = try allocator.create(Stmt);
+    errdefer allocator.destroy(outer_var_decl);
+    defer allocator.destroy(outer_var_decl);
+    outer_var_decl.* = Stmt{ .Var = .{
+        .name = Token{ .type = TokenType.Identifier, .lexeme = "x", .line = 1 },
+        .initializer = null,
+    } };
+
+    try ast.statements.append(outer_var_decl);
+    try ast.statements.append(block);
+
+    // Analyze the AST
+    const errors = try analyzer.analyze(&ast);
+    try testing.expectEqual(@as(usize, 0), errors.len);
+}
+
+test "SemanticAnalyzer: function declaration and scope" {
+    const allocator = testing.allocator;
+    var analyzer = SemanticAnalyzer.init(allocator);
+    defer analyzer.deinit();
+
+    // Create a simple AST with a function declaration
+    var ast = Ast{
+        .allocator = allocator,
+        .statements = std.ArrayList(*Stmt).init(allocator),
+    };
+    defer ast.statements.deinit();
+
+    const func = try allocator.create(Expr);
+    defer allocator.destroy(func);
+
+    func.* = Expr{ .Function = .{
+        .params = std.ArrayList(Token).init(allocator),
+        .body = std.ArrayList(*Stmt).init(allocator),
+    } };
+
+    const func_decl = try allocator.create(Stmt);
+    defer allocator.destroy(func_decl);
+    func_decl.* = Stmt{ .Function = .{
+        .name = Token{ .type = TokenType.Identifier, .lexeme = "foo", .line = 1 },
+        .function = func,
+    } };
+
+    try ast.statements.append(func_decl);
+
+    // Analyze the AST
+    const errors = try analyzer.analyze(&ast);
+    try testing.expectEqual(@as(usize, 0), errors.len);
+}

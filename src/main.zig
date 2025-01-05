@@ -2,6 +2,7 @@ const std = @import("std");
 const scanner = @import("scanner.zig");
 const parser = @import("parser.zig");
 const ast = @import("ast.zig");
+const semantic = @import("semantic.zig");
 
 const stdout = std.io.getStdIn().writer();
 
@@ -14,7 +15,7 @@ pub fn main() !void {
     const source =
         \\var x = 42;
         \\if (x > 10) {
-        \\    print("Hello, World!");
+        \\    print("Hello, World! From Z - Language :D");
         \\}
     ;
 
@@ -45,4 +46,22 @@ pub fn main() !void {
     // Print the AST structure
     try stdout.print("\nAST Structure: \n", .{});
     try tree.printAst(0);
+
+    // Initialize semantic analyzer
+    var analyzer = semantic.SemanticAnalyzer.init(allocator);
+    defer analyzer.deinit();
+
+    // Perform semantic analysis
+    const semantic_errors = try analyzer.analyze(&tree);
+
+    // Print semantic analysis results
+    try stdout.print("\nSemantic Analysis Results:\n", .{});
+    if (semantic_errors.len == 0) {
+        try stdout.print("No semantic errors found.\n", .{});
+    } else {
+        try stdout.print("Found {d} semantic error(s):\n", .{semantic_errors.len});
+        for (semantic_errors) |error_msg| {
+            try stdout.print("{s}\n", .{error_msg});
+        }
+    }
 }
