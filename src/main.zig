@@ -58,6 +58,16 @@ pub fn main() !void {
     try stdout.print("\nSemantic Analysis Results:\n", .{});
     if (semantic_errors.len == 0) {
         try stdout.print("No semantic errors found.\n", .{});
+
+        // Initialize and run interpreter
+        try stdout.print("\nInterpreter Output:\n", .{});
+        var interpreter = @import("interpreter.zig").Interpreter.init(allocator);
+        defer interpreter.deinit();
+
+        interpreter.interpret(&tree) catch |err| {
+            try stdout.print("Runtime Error: {s}\n", .{@errorName(err)});
+            return;
+        };
     } else {
         try stdout.print("Found {d} semantic error(s):\n", .{semantic_errors.len});
         for (semantic_errors) |error_msg| {

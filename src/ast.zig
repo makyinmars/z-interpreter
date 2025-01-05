@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 const Token = @import("scanner.zig").Token;
 const scanner = @import("scanner.zig");
 const ast = @import("ast.zig");
+const Environment = @import("interpreter.zig").Environment;
 
 const stdout = std.io.getStdOut().writer();
 const testing = std.testing;
