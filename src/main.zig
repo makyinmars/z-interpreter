@@ -4,7 +4,7 @@ const parser = @import("parser.zig");
 const ast = @import("ast.zig");
 const semantic = @import("semantic.zig");
 
-const stdout = std.io.getStdIn().writer();
+const stdout = std.io.getStdOut().writer();
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
