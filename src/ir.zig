@@ -16,6 +16,7 @@ pub const IR = struct {
         branch, // Conditional branch
         jump, // Unconditional jump
         ret, // Return
+        call, // Call function
     };
 
     /// Single IR instruction containing operation and operands
