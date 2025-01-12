@@ -4,29 +4,54 @@ const ir = @import("ir.zig");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
+/// CodeGen is responsible for generating intermediate representation (IR) code
+/// from an abstract syntax tree (AST). It uses an allocator for memory management
+/// and maintains a temporary counter for register allocation.
 pub const CodeGen = struct {
     ir_module: ir.IR,
     allocator: Allocator,
     temp_counter: u32,
 
-    pub fn init(allocator: Allocator) CodeGen {
+    /// Initializes a new CodeGen instance.
+    ///
+    /// Parameters:
+    /// - allocator: The allocator to use for memory management.
+    ///
+    /// Returns:
+    /// - A new CodeGen instance or an error if initialization fails.
+    pub fn init(allocator: Allocator) !CodeGen {
         return .{
-            .ir_module = ir.IR.init(allocator),
+            .ir_module = try ir.IR.init(allocator),
             .allocator = allocator,
             .temp_counter = 0,
         };
     }
 
+    /// Deinitializes the CodeGen instance, freeing any allocated resources.
     pub fn deinit(self: *CodeGen) void {
         self.ir_module.deinit();
     }
 
+    /// Generates IR code from the provided AST.
+    ///
+    /// Parameters:
+    /// - tree: The AST to generate code from.
+    ///
+    /// Returns:
+    /// - void or an error if code generation fails.
     pub fn generate(self: *CodeGen, tree: *const ast.Ast) !void {
         for (tree.statements.items) |stmt| {
             try self.generateStmt(stmt);
         }
     }
 
+    /// Generates IR code for a single statement.
+    ///
+    /// Parameters:
+    /// - stmt: The statement to generate code for.
+    ///
+    /// Returns:
+    /// - void or an error if code generation fails.
     fn generateStmt(self: *CodeGen, stmt: *const ast.Stmt) !void {
         switch (stmt.*) {
             .Expression => |expr_stmt| {
@@ -85,8 +110,11 @@ pub const CodeGen = struct {
                 const after_loop = self.ir_module.instructions.items.len;
                 self.ir_module.instructions.items[branch_inst].operand1 = @intCast(after_loop);
             },
-            .Function => |func| {
-                try self.generateStmt(func.name);
+            .Function => |_| {
+                // Store the function name/reference
+                const func_reg = self.temp_counter;
+                self.temp_counter += 1;
+                try self.ir_module.addInstruction(.load, func_reg, null, null);
                 try self.ir_module.addInstruction(.ret, null, null, null);
             },
             .Return => |ret| {
@@ -100,12 +128,20 @@ pub const CodeGen = struct {
         }
     }
 
+    /// Generates IR code for a single expression.
+    ///
+    /// Parameters:
+    /// - expr: The expression to generate code for.
+    ///
+    /// Returns:
+    /// - The register containing the result of the expression or an error if code generation fails.
     fn generateExpr(self: *CodeGen, expr: *const ast.Expr) !u32 {
-        const result = self.temp_counter;
-        self.temp_counter += 1;
+        var result: u32 = undefined;
 
         switch (expr.*) {
             .Literal => |_| {
+                result = self.temp_counter;
+                self.temp_counter += 1;
                 try self.ir_module.addInstruction(.load, result, null, null);
             },
             .Variable => |_| {
@@ -114,6 +150,9 @@ pub const CodeGen = struct {
             .Binary => |bin| {
                 const left_reg = try self.generateExpr(bin.left);
                 const right_reg = try self.generateExpr(bin.right);
+
+                result = self.temp_counter;
+                self.temp_counter += 1;
 
                 const op: ir.IR.OpCode = switch (bin.operator.type) {
                     .Plus => .add,
@@ -177,7 +216,7 @@ pub const CodeGen = struct {
 
 test "CodeGen initialization and deinitialization" {
     const allocator = testing.allocator;
-    var codegen = CodeGen.init(allocator);
+    var codegen = try CodeGen.init(allocator);
     defer codegen.deinit();
 
     // Verify that the CodeGen instance is initialized correctly
@@ -187,7 +226,7 @@ test "CodeGen initialization and deinitialization" {
 
 test "CodeGen generateStmt with Expression statement" {
     const allocator = testing.allocator;
-    var codegen = CodeGen.init(allocator);
+    var codegen = try CodeGen.init(allocator);
     defer codegen.deinit();
 
     const literal = try allocator.create(ast.Expr);
@@ -208,39 +247,39 @@ test "CodeGen generateStmt with Expression statement" {
 
     // Verify that the IR contains the expected instructions
     try std.testing.expect(codegen.ir_module.instructions.items.len > 0);
-    try std.testing.expectEqual(ir.OpCode.load, codegen.ir_module.instructions.items[0].op);
+    try std.testing.expectEqual(ir.IR.OpCode.load, codegen.ir_module.instructions.items[0].op);
 }
 
 test "CodeGen generateStmt with Print statement" {
     const allocator = std.testing.allocator;
-    var codegen = CodeGen.init(allocator);
+    var codegen = try CodeGen.init(allocator);
     defer codegen.deinit();
 
     const literal = try allocator.create(ast.Expr);
     defer allocator.destroy(literal);
-    literal.* = ast.Expr{ .Literal = .{ .value = 42 } };
+    literal.* = ast.Expr{ .Literal = .{ .value = ast.Value{ .Number = 42 } } };
 
     const print_stmt = try allocator.create(ast.Stmt);
     defer allocator.destroy(print_stmt);
     print_stmt.* = ast.Stmt{ .Print = .{ .expression = literal } };
 
-    var tree = ast.Ast{ .statements = std.ArrayList(*ast.Stmt).init(allocator) };
+    var tree = ast.Ast{ .statements = std.ArrayList(*ast.Stmt).init(allocator), .allocator = allocator };
     defer tree.statements.deinit();
 
-    try tree.statements.append(&print_stmt);
+    try tree.statements.append(print_stmt);
 
     // Generate code for the statement
     try codegen.generate(&tree);
 
     // Verify that the IR contains the expected instructions
     try std.testing.expect(codegen.ir_module.instructions.items.len > 0);
-    try std.testing.expectEqual(ir.OpCode.load, codegen.ir_module.instructions.items[0].op);
-    try std.testing.expectEqual(ir.OpCode.store, codegen.ir_module.instructions.items[1].op);
+    try std.testing.expectEqual(ir.IR.OpCode.load, codegen.ir_module.instructions.items[0].op);
+    try std.testing.expectEqual(ir.IR.OpCode.store, codegen.ir_module.instructions.items[1].op);
 }
 
 test "CodeGen generateStmt with If statement" {
     const allocator = std.testing.allocator;
-    var codegen = CodeGen.init(allocator);
+    var codegen = try CodeGen.init(allocator);
     defer codegen.deinit();
 
     const cond_literal = try allocator.create(ast.Expr);
@@ -262,23 +301,23 @@ test "CodeGen generateStmt with If statement" {
         .thenBranch = then_expr,
         .elseBranch = null,
     } };
-    var tree = ast.Ast{ .statements = std.ArrayList(*ast.Stmt).init(allocator) };
+    var tree = ast.Ast{ .statements = std.ArrayList(*ast.Stmt).init(allocator), .allocator = allocator };
     defer tree.statements.deinit();
 
-    try tree.statements.append(&if_stmt);
+    try tree.statements.append(if_stmt);
 
     // Generate code for the statement
     try codegen.generate(&tree);
 
     // Verify that the IR contains the expected instructions
     try std.testing.expect(codegen.ir_module.instructions.items.len > 0);
-    try std.testing.expectEqual(ir.OpCode.load, codegen.ir_module.instructions.items[0].op);
-    try std.testing.expectEqual(ir.OpCode.branch, codegen.ir_module.instructions.items[1].op);
+    try std.testing.expectEqual(ir.IR.OpCode.load, codegen.ir_module.instructions.items[0].op);
+    try std.testing.expectEqual(ir.IR.OpCode.branch, codegen.ir_module.instructions.items[1].op);
 }
 
 test "CodeGen generateExpr with Binary expression" {
     const allocator = std.testing.allocator;
-    var codegen = CodeGen.init(allocator);
+    var codegen = try CodeGen.init(allocator);
     defer codegen.deinit();
 
     const left_literal = try allocator.create(ast.Expr);
@@ -294,16 +333,25 @@ test "CodeGen generateExpr with Binary expression" {
     bin_expr.* = ast.Expr{ .Binary = .{
         .left = left_literal,
         .right = right_literal,
-        .operator = .{ .type = .Plus },
+        .operator = .{ .type = .Plus, .lexeme = "+", .line = 1 },
     } };
 
     // Generate code for the expression
-    const result_reg = try codegen.generateExpr(&bin_expr);
+    // This will:
+    // 1. Load left operand into register 0
+    // 2. Load right operand into register 1
+    // 3. Add them and store result in register 2
+    const result_reg = try codegen.generateExpr(bin_expr);
 
     // Verify that the IR contains the expected instructions
-    try std.testing.expect(codegen.ir_module.instructions.items.len > 0);
-    try std.testing.expectEqual(ir.OpCode.load, codegen.ir_module.instructions.items[0].op);
-    try std.testing.expectEqual(ir.OpCode.load, codegen.ir_module.instructions.items[1].op);
-    try std.testing.expectEqual(ir.OpCode.add, codegen.ir_module.instructions.items[2].op);
-    try std.testing.expectEqual(@as(u32, 2), result_reg);
+    try testing.expect(codegen.ir_module.instructions.items.len > 0);
+    try testing.expectEqual(ir.IR.OpCode.load, codegen.ir_module.instructions.items[0].op);
+    try testing.expectEqual(ir.IR.OpCode.load, codegen.ir_module.instructions.items[1].op);
+    try testing.expectEqual(ir.IR.OpCode.add, codegen.ir_module.instructions.items[2].op);
+    // For binary expression:
+    // Register 0: left literal
+    // Register 1: right literal
+    // Register 2: result of addition
+    try testing.expectEqual(@as(u32, 2), result_reg);
+    try testing.expectEqual(@as(usize, 3), codegen.ir_module.instructions.items.len);
 }
