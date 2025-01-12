@@ -39,6 +39,53 @@ This will:
 - Tokenize the sample code in `src/main.zig`
 - Print all tokens to stdout
 
+This will print all tokens to stdout. eg:
+
+```
+> zig build run
+Tokens:
+[Line 1] Var: var
+[Line 1] Identifier: x
+[Line 1] Equal: =
+[Line 1] Number: 42
+[Line 1] Semicolon: ;
+[Line 2] If: if
+[Line 2] LeftParen: (
+[Line 2] Identifier: x
+[Line 2] Greater: >
+[Line 2] Number: 10
+[Line 2] RightParen: )
+[Line 2] LeftBrace: {
+[Line 3] Print: print
+[Line 3] LeftParen: (
+[Line 3] String: "Hello, World! From Z - Language :D"
+[Line 3] RightParen: )
+[Line 3] Semicolon: ;
+[Line 4] RightBrace: }
+[Line 4] Eof: }
+
+AST Structure:
+Var Statement: x
+  Initializer:
+    Number: 42
+If Statement:
+  Condition:
+    Binary: >
+      Variable: x
+      Number: 10
+  Then:
+    Block Statement:
+      Print Statement:
+        Grouping:
+          String: "Hello, World! From Z - Language :D"
+
+Semantic Analysis Results:
+No semantic errors found.
+
+Interpreter Output:
+"Hello, World! From Z - Language :D"
+```
+
 ### Running Tests
 
 To run the scanner tests:
